@@ -229,3 +229,130 @@ def group_chat_id(chat_id: int, title: str | None = None) -> str:
         "Скопируйте это значение в <code>ADMIN_CHAT_ID</code> в файле "
         "<code>.env</code> и перезапустите бота — сюда будут приходить прайсы."
     )
+
+
+def help_supplier(company_name: str) -> str:
+    return (
+        f"📖 <b>Справка — бот приёма прайсов ({company_name})</b>\n\n"
+        "<b>Команды:</b>\n"
+        "• /start — начать / вернуться в начало\n"
+        "• /help — эта справка\n\n"
+        "<b>Как отправить прайс:</b>\n"
+        "1. Нажмите «Авторизоваться» и укажите компанию или ИНН\n"
+        "2. Дождитесь одобрения менеджером\n"
+        "3. Выберите дни, когда обычно присылаете прайс\n"
+        "4. Пришлите файл Excel/CSV как <b>документ</b> (не фото)\n\n"
+        "Форматы: <b>.xlsx, .xls, .csv</b>, до 20 МБ."
+    )
+
+
+def help_admin() -> str:
+    return (
+        "📖 <b>Справка — админ-команды</b>\n\n"
+        "Работают в этом чате (группа закупок):\n\n"
+        "• /suppliers — список всех поставщиков\n"
+        "• /bind <code>&lt;telegram_id&gt; &lt;компания&gt;</code> — "
+        "создать или сменить привязку (сразу approved)\n"
+        "• /unbind <code>&lt;telegram_id&gt;</code> — удалить привязку\n"
+        "• /help — эта справка\n\n"
+        "<b>Примеры:</b>\n"
+        "<code>/bind 123456789 ООО Ромашка</code>\n"
+        "<code>/bind 123456789 7707083893</code>\n"
+        "<code>/unbind 123456789</code>\n\n"
+        "telegram_id можно взять из /suppliers или из профиля пользователя."
+    )
+
+
+def admin_suppliers_empty() -> str:
+    return "📋 Поставщиков пока нет."
+
+
+def admin_suppliers_header(total: int) -> str:
+    return f"📋 <b>Поставщики</b> ({total}):\n"
+
+
+def admin_supplier_line(
+    *,
+    index: int,
+    company_name: str,
+    status: str,
+    telegram_id: int,
+    username: str | None,
+    full_name: str | None,
+    schedule_label: str,
+) -> str:
+    status_labels = {
+        "approved": "✅ approved",
+        "pending": "⏳ pending",
+        "rejected": "❌ rejected",
+    }
+    status_text = status_labels.get(status, status)
+    user_line = f"@{username}" if username else "—"
+    name = full_name or "—"
+    return (
+        f"\n<b>{index}. {company_name}</b> — {status_text}\n"
+        f"   id: <code>{telegram_id}</code> · {user_line} · {name}\n"
+        f"   расписание: {schedule_label}"
+    )
+
+
+def admin_bind_usage() -> str:
+    return (
+        "Использование:\n"
+        "<code>/bind &lt;telegram_id&gt; &lt;компания или ИНН&gt;</code>\n\n"
+        "Пример: <code>/bind 123456789 ООО Ромашка</code>"
+    )
+
+
+def admin_unbind_usage() -> str:
+    return (
+        "Использование:\n"
+        "<code>/unbind &lt;telegram_id&gt;</code>\n\n"
+        "Пример: <code>/unbind 123456789</code>"
+    )
+
+
+def admin_bind_ok(
+    *,
+    telegram_id: int,
+    company_name: str,
+    status: str,
+    created: bool,
+) -> str:
+    action = "создана" if created else "обновлена"
+    return (
+        f"✅ <b>Привязка {action}</b>\n\n"
+        f"• telegram_id: <code>{telegram_id}</code>\n"
+        f"• компания: <b>{company_name}</b>\n"
+        f"• статус: <b>{status}</b>"
+    )
+
+
+def admin_unbind_ok(telegram_id: int, company_name: str) -> str:
+    return (
+        f"🗑 <b>Привязка удалена</b>\n\n"
+        f"• telegram_id: <code>{telegram_id}</code>\n"
+        f"• была компания: <b>{company_name}</b>"
+    )
+
+
+def admin_unbind_not_found(telegram_id: int) -> str:
+    return f"Привязка для <code>{telegram_id}</code> не найдена."
+
+
+def admin_bad_telegram_id() -> str:
+    return "Некорректный telegram_id — нужен числовой ID пользователя."
+
+
+def admin_bind_notify(company_name: str) -> str:
+    return (
+        f"✅ Менеджер привязал вас к компании: <b>{company_name}</b>.\n\n"
+        "Можете отправить прайс-лист или настроить расписание через /start."
+    )
+
+
+def admin_unbind_notify() -> str:
+    return (
+        "ℹ️ Ваша привязка к компании снята менеджером.\n"
+        "Чтобы снова отправлять прайсы, пройдите авторизацию через /start."
+    )

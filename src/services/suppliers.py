@@ -201,6 +201,72 @@ class SupplierRepo:
             ).fetchall()
         return [self._row_to_supplier(r) for r in rows]
 
+    def list_all(self) -> list[Supplier]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                self._select_sql() + " ORDER BY company_name COLLATE NOCASE, telegram_id"
+            ).fetchall()
+        return [self._row_to_supplier(r) for r in rows]
+
+    def bind(
+        self,
+        telegram_id: int,
+        company_name: str,
+        *,
+        username: str | None = None,
+        full_name: str | None = None,
+        status: str = STATUS_APPROVED,
+    ) -> Supplier:
+        """Создать или сменить привязку user→компания (по умолчанию approved)."""
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        with self._connect() as conn:
+            existing = conn.execute(
+                "SELECT created_at, username, full_name FROM suppliers WHERE telegram_id = ?",
+                (telegram_id,),
+            ).fetchone()
+            created_at = existing["created_at"] if existing else now
+            # Не затираем username/full_name, если новые не переданы
+            keep_username = username if username is not None else (
+                existing["username"] if existing else None
+            )
+            keep_full_name = full_name if full_name is not None else (
+                existing["full_name"] if existing else None
+            )
+            conn.execute(
+                """
+                INSERT INTO suppliers (
+                    telegram_id, company_name, status, username, full_name,
+                    created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(telegram_id) DO UPDATE SET
+                    company_name = excluded.company_name,
+                    status = excluded.status,
+                    username = COALESCE(excluded.username, suppliers.username),
+                    full_name = COALESCE(excluded.full_name, suppliers.full_name),
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    telegram_id,
+                    company_name,
+                    status,
+                    keep_username,
+                    keep_full_name,
+                    created_at,
+                    now,
+                ),
+            )
+        return self.get(telegram_id)  # type: ignore[return-value]
+
+    def unbind(self, telegram_id: int) -> bool:
+        """Удалить привязку. True, если запись была."""
+        with self._connect() as conn:
+            cur = conn.execute(
+                "DELETE FROM suppliers WHERE telegram_id = ?",
+                (telegram_id,),
+            )
+            return cur.rowcount > 0
+
     def create_pending(
         self,
         telegram_id: int,
