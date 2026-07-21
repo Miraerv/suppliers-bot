@@ -6,6 +6,8 @@ import sys
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
+from aiogram.client.session.aiohttp import AiohttpSession
+from aiogram.client.telegram import TelegramAPIServer
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -38,9 +40,22 @@ async def main() -> None:
 
     dp.include_router(setup_routers())
 
+    if config.use_tproxy:
+        session = AiohttpSession(
+            api=TelegramAPIServer(
+                base=f"{config.tproxy_base}/bot{{token}}/{{method}}",
+                file=f"{config.tproxy_base}/file/bot{{token}}/{{path}}",
+            )
+        )
+        logger.info("Telegram API via tproxy: %s", config.tproxy_base)
+    else:
+        session = AiohttpSession()
+        logger.info("Telegram API direct (api.telegram.org)")
+
     bot = Bot(
         token=config.bot_token,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+        session=session,
     )
 
     scheduler = AsyncIOScheduler(timezone=YAKUTSK)

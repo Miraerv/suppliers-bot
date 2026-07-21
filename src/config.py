@@ -14,6 +14,9 @@ class Config:
     manager_contacts: str
     # Напоминания о прайсе (якутское время), через запятую часы: "10,15"
     reminder_hours: tuple[int, ...]
+    # Telegram API proxy (when api.telegram.org is blocked / flaky)
+    use_tproxy: bool = False
+    tproxy_base: str = "https://tg.michaelmironov122.online"
     max_file_bytes: int = 20 * 1024 * 1024
     allowed_extensions: tuple[str, ...] = (".xlsx", ".xls", ".csv")
 
@@ -50,4 +53,8 @@ def load_config() -> Config:
             "свяжитесь с вашим менеджером",
         ),
         reminder_hours=_parse_hours(getenv("REMINDER_HOURS", "10,15")),
+        use_tproxy=getenv("USE_TPROXY", "false").lower() in ("1", "true", "yes"),
+        tproxy_base=getenv(
+            "TPROXY_BASE", "https://tg.michaelmironov122.online"
+        ).rstrip("/"),
     )
