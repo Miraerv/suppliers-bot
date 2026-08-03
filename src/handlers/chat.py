@@ -34,6 +34,8 @@ async def on_admin_reply_in_topic(
         return
     if message.reply_to_message.from_user.id != bot.id:
         return
+    if message.reply_to_message.message_id == message.message_thread_id:
+        return
 
     topic_id = message.message_thread_id
     if topic_id is None:
