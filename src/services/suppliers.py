@@ -200,6 +200,16 @@ class SupplierRepo:
             return None
         return supplier
 
+    def get_by_topic_id(self, topic_id: int) -> Supplier | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                self._select_sql() + " WHERE topic_id = ?",
+                (topic_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return self._row_to_supplier(row)
+
     def list_approved_with_schedule(self) -> list[Supplier]:
         with self._connect() as conn:
             rows = conn.execute(

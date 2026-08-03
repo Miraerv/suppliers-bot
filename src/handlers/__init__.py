@@ -1,6 +1,6 @@
 from aiogram import Router
 
-from src.handlers import admin, auth, group, price, schedule, start
+from src.handlers import admin, auth, chat, group, price, schedule, start
 
 
 def setup_routers() -> Router:
@@ -11,5 +11,6 @@ def setup_routers() -> Router:
     root.include_router(auth.router)
     root.include_router(schedule.router)
     root.include_router(price.router)
+    root.include_router(chat.router)
     root.include_router(group.router)
     return root

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from aiogram import Bot, F, Router
@@ -9,11 +10,7 @@ from aiogram.types import CallbackQuery, Message
 from src import texts
 from src.config import Config
 from src.keyboards.common import CB_UPDATE_PRICE, auth_keyboard
-from src.services.files import (
-    describe_reject_reason,
-    is_allowed_document,
-    is_too_large,
-)
+from src.services.files import is_allowed_document, is_too_large
 from src.services.routing import accept_and_route
 from src.services.suppliers import SupplierRepo
 from src.timeutil import format_when
@@ -21,6 +18,8 @@ from src.timeutil import format_when
 router = Router(name="price")
 router.message.filter(F.chat.type == ChatType.PRIVATE)
 router.callback_query.filter(F.message.chat.type == ChatType.PRIVATE)
+
+logger = logging.getLogger(__name__)
 
 
 @router.callback_query(F.data == CB_UPDATE_PRICE)
@@ -68,17 +67,23 @@ async def on_document(
 
     document = message.document
 
-    if is_too_large(document, config.max_file_bytes):
-        await message.answer(texts.file_too_large())
+    if not is_allowed_document(document):
+        if supplier.topic_id:
+            try:
+                await message.copy_to(
+                    chat_id=config.admin_chat_id,
+                    message_thread_id=supplier.topic_id,
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to forward non-price document from user=%s to topic=%s",
+                    message.from_user.id,
+                    supplier.topic_id,
+                )
         return
 
-    if not is_allowed_document(document):
-        await message.answer(
-            texts.bad_format(
-                describe_reject_reason(message),
-                config.manager_contacts,
-            )
-        )
+    if is_too_large(document, config.max_file_bytes):
+        await message.answer(texts.file_too_large())
         return
 
     when = format_when()
@@ -104,11 +109,8 @@ async def on_wrong_content(
     config: Config,
     suppliers: SupplierRepo,
 ) -> None:
-    """Любой «не документ» от уже известного поставщика — мягкая ошибка формата.
+    """Не-документ от одобренного поставщика → пересылаем в форум-топик."""
 
-    Неавторизованных не спамим этим текстом на каждое сообщение:
-    достаточно need_auth.
-    """
     assert message.from_user is not None
 
     # /start и команды обрабатываются другими роутерами раньше; на всякий случай
@@ -124,9 +126,16 @@ async def on_wrong_content(
         await message.answer(texts.need_auth(), reply_markup=auth_keyboard())
         return
 
-    await message.answer(
-        texts.bad_format(
-            describe_reject_reason(message),
-            config.manager_contacts,
-        )
-    )
+    if supplier.topic_id:
+        try:
+            await message.copy_to(
+                chat_id=config.admin_chat_id,
+                message_thread_id=supplier.topic_id,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to forward message from user=%s to topic=%s",
+                message.from_user.id,
+                supplier.topic_id,
+            )
+    return
