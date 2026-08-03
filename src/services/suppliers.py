@@ -61,6 +61,7 @@ def format_schedule_days(days: set[int] | frozenset[int]) -> str:
 class Supplier:
     telegram_id: int
     company_name: str
+    inn: str | None
     status: str
     topic_id: int | None
     username: str | None
@@ -124,6 +125,7 @@ class SupplierRepo:
                 CREATE TABLE IF NOT EXISTS suppliers (
                     telegram_id INTEGER PRIMARY KEY,
                     company_name TEXT NOT NULL,
+                    inn TEXT,
                     status TEXT NOT NULL DEFAULT 'approved',
                     topic_id INTEGER,
                     username TEXT,
@@ -142,6 +144,7 @@ class SupplierRepo:
             }
             migrations = {
                 "status": "ALTER TABLE suppliers ADD COLUMN status TEXT NOT NULL DEFAULT 'approved'",
+                "inn": "ALTER TABLE suppliers ADD COLUMN inn TEXT",
                 "topic_id": "ALTER TABLE suppliers ADD COLUMN topic_id INTEGER",
                 "username": "ALTER TABLE suppliers ADD COLUMN username TEXT",
                 "full_name": "ALTER TABLE suppliers ADD COLUMN full_name TEXT",
@@ -162,6 +165,7 @@ class SupplierRepo:
         return Supplier(
             telegram_id=row["telegram_id"],
             company_name=row["company_name"],
+            inn=col("inn"),
             status=row["status"] or STATUS_APPROVED,
             topic_id=col("topic_id"),
             username=col("username"),
@@ -175,7 +179,7 @@ class SupplierRepo:
 
     def _select_sql(self) -> str:
         return (
-            "SELECT telegram_id, company_name, status, topic_id, username, full_name, "
+            "SELECT telegram_id, company_name, inn, status, topic_id, username, full_name, "
             "schedule_days, last_price_at, last_reminder_at, created_at, updated_at "
             "FROM suppliers"
         )
@@ -217,6 +221,7 @@ class SupplierRepo:
         telegram_id: int,
         company_name: str,
         *,
+        inn: str | None = None,
         username: str | None = None,
         full_name: str | None = None,
         status: str = STATUS_APPROVED,
@@ -225,26 +230,30 @@ class SupplierRepo:
         now = datetime.now(timezone.utc).isoformat(timespec="seconds")
         with self._connect() as conn:
             existing = conn.execute(
-                "SELECT created_at, username, full_name FROM suppliers WHERE telegram_id = ?",
+                "SELECT created_at, username, full_name, inn FROM suppliers WHERE telegram_id = ?",
                 (telegram_id,),
             ).fetchone()
             created_at = existing["created_at"] if existing else now
-            # Не затираем username/full_name, если новые не переданы
+            # Не затираем username/full_name/inn, если новые не переданы
             keep_username = username if username is not None else (
                 existing["username"] if existing else None
             )
             keep_full_name = full_name if full_name is not None else (
                 existing["full_name"] if existing else None
             )
+            keep_inn = inn if inn is not None else (
+                existing["inn"] if existing else None
+            )
             conn.execute(
                 """
                 INSERT INTO suppliers (
-                    telegram_id, company_name, status, username, full_name,
+                    telegram_id, company_name, inn, status, username, full_name,
                     created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(telegram_id) DO UPDATE SET
                     company_name = excluded.company_name,
+                    inn = COALESCE(excluded.inn, suppliers.inn),
                     status = excluded.status,
                     username = COALESCE(excluded.username, suppliers.username),
                     full_name = COALESCE(excluded.full_name, suppliers.full_name),
@@ -253,6 +262,7 @@ class SupplierRepo:
                 (
                     telegram_id,
                     company_name,
+                    keep_inn,
                     status,
                     keep_username,
                     keep_full_name,
@@ -275,6 +285,7 @@ class SupplierRepo:
         self,
         telegram_id: int,
         company_name: str,
+        inn: str | None = None,
         username: str | None = None,
         full_name: str | None = None,
     ) -> Supplier:
@@ -282,19 +293,23 @@ class SupplierRepo:
         now = datetime.now(timezone.utc).isoformat(timespec="seconds")
         with self._connect() as conn:
             existing = conn.execute(
-                "SELECT created_at FROM suppliers WHERE telegram_id = ?",
+                "SELECT created_at, inn FROM suppliers WHERE telegram_id = ?",
                 (telegram_id,),
             ).fetchone()
             created_at = existing["created_at"] if existing else now
+            keep_inn = inn if inn is not None else (
+                existing["inn"] if existing else None
+            )
             conn.execute(
                 """
                 INSERT INTO suppliers (
-                    telegram_id, company_name, status, username, full_name,
+                    telegram_id, company_name, inn, status, username, full_name,
                     created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(telegram_id) DO UPDATE SET
                     company_name = excluded.company_name,
+                    inn = COALESCE(excluded.inn, suppliers.inn),
                     status = excluded.status,
                     username = excluded.username,
                     full_name = excluded.full_name,
@@ -303,6 +318,7 @@ class SupplierRepo:
                 (
                     telegram_id,
                     company_name,
+                    keep_inn,
                     STATUS_PENDING,
                     username,
                     full_name,

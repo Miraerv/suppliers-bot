@@ -6,7 +6,8 @@ class AuthStates(StatesGroup):
 
     FSM в aiogram — это state machine:
     - state хранится в storage (Memory / Redis) по ключу (bot_id, chat_id, user_id)
-    - фильтр StateFilter(AuthStates.waiting_company) матчит только в этом шаге
+    - фильтр StateFilter(AuthStates.waiting_inn) матчит только в этом шаге
     """
 
+    waiting_inn = State()
     waiting_company = State()

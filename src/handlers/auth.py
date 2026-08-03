@@ -67,8 +67,50 @@ async def on_auth_click(
         await state.clear()
         return
 
+    await state.set_state(AuthStates.waiting_inn)
+    await callback.message.answer(texts.ask_inn())
+
+
+@router.message(AuthStates.waiting_inn, F.text)
+async def on_inn(
+    message: Message,
+    state: FSMContext,
+    suppliers: SupplierRepo,
+) -> None:
+    assert message.from_user is not None
+    assert message.text is not None
+
+    inn_raw = message.text.strip()
+
+    skip_tokens = {"-", "нет", "skip", "no", "—"}
+    if inn_raw.lower() in skip_tokens:
+        inn = None
+    elif inn_raw.isdigit() and len(inn_raw) in (10, 12):
+        inn = inn_raw
+    else:
+        await message.answer(texts.bad_inn())
+        return
+
+    existing = suppliers.get(message.from_user.id)
+    if existing is not None and existing.is_approved:
+        await state.clear()
+        await message.answer(texts.identified(existing.company_name))
+        await message.answer(texts.wait_for_file())
+        return
+
+    if existing is not None and existing.is_pending:
+        await state.clear()
+        await message.answer(texts.already_pending(existing.company_name))
+        return
+
+    await state.update_data(inn=inn)
     await state.set_state(AuthStates.waiting_company)
-    await callback.message.answer(texts.ask_company())
+    await message.answer(texts.ask_company_name())
+
+
+@router.message(AuthStates.waiting_inn)
+async def on_inn_not_text(message: Message) -> None:
+    await message.answer(texts.bad_inn())
 
 
 @router.message(AuthStates.waiting_company, F.text)
@@ -84,10 +126,11 @@ async def on_company_name(
 
     company = message.text.strip()
     if len(company) < 2:
-        await message.answer(
-            "Слишком короткое название. Введите юридическое название или ИНН."
-        )
+        await message.answer(texts.bad_company_name())
         return
+
+    data = await state.get_data()
+    inn = data.get("inn")
 
     user = message.from_user
     existing = suppliers.get(user.id)
@@ -106,6 +149,7 @@ async def on_company_name(
     supplier = suppliers.create_pending(
         telegram_id=user.id,
         company_name=company,
+        inn=inn,
         username=user.username,
         full_name=full_name,
     )
@@ -133,6 +177,7 @@ async def on_company_name(
             message_thread_id=topic_id,
             text=texts.moderation_request(
                 company_name=supplier.company_name,
+                inn=supplier.inn,
                 username=user.username,
                 full_name=full_name,
             ),
@@ -188,6 +233,7 @@ async def on_approve(
             texts.moderation_decided(
                 approved=True,
                 company_name=supplier.company_name,
+                inn=supplier.inn,
                 username=supplier.username,
                 full_name=supplier.full_name or "—",
                 moderator=_moderator_label(callback.from_user),
@@ -205,6 +251,7 @@ async def on_approve(
         texts.moderation_decided(
             approved=True,
             company_name=approved.company_name,
+            inn=approved.inn,
             username=approved.username,
             full_name=approved.full_name or "—",
             moderator=_moderator_label(callback.from_user),
@@ -268,6 +315,7 @@ async def on_reject(
             texts.moderation_decided(
                 approved=False,
                 company_name=supplier.company_name,
+                inn=supplier.inn,
                 username=supplier.username,
                 full_name=supplier.full_name or "—",
                 moderator=_moderator_label(callback.from_user),
@@ -285,6 +333,7 @@ async def on_reject(
         texts.moderation_decided(
             approved=False,
             company_name=rejected.company_name,
+            inn=rejected.inn,
             username=rejected.username,
             full_name=rejected.full_name or "—",
             moderator=_moderator_label(callback.from_user),

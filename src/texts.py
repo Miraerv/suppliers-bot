@@ -23,6 +23,36 @@ def welcome_known(company_name: str, supplier_name: str) -> str:
     )
 
 
+def ask_inn() -> str:
+    return (
+        "🏢 <b>Шаг 1 из 2 — введите ИНН вашей компании.</b>\n\n"
+        "ИНН должен состоять из 10 или 12 цифр.\n"
+        "Если ИНН нет — напишите <b>-</b> (минус), чтобы пропустить.\n\n"
+        "Введите ИНН в ответном сообщении:"
+    )
+
+
+def bad_inn() -> str:
+    return (
+        "⚠️ Некорректный ИНН. ИНН должен состоять из 10 или 12 цифр.\n"
+        "Если ИНН нет — напишите <b>-</b> (минус), чтобы пропустить.\n"
+        "Пожалуйста, проверьте и введите ещё раз."
+    )
+
+
+def ask_company_name() -> str:
+    return (
+        "🏢 <b>Шаг 2 из 2 — введите название компании.</b>\n\n"
+        "Укажите юридическое название организации в ответном сообщении:"
+    )
+
+
+def bad_company_name() -> str:
+    return (
+        "⚠️ Слишком короткое название. Введите полное юридическое название компании."
+    )
+
+
 def ask_company() -> str:
     return (
         "🏢 <b>Укажите, какую компанию вы представляете.</b>\n\n"
@@ -127,15 +157,17 @@ def rejected_notify(supplier_name: str) -> str:
 def moderation_request(
     *,
     company_name: str,
+    inn: str | None,
     username: str | None,
     full_name: str,
 ) -> str:
     user_line = f"@{username}" if username else "— (username не указан)"
+    inn_line = f"\n• ИНН: <b>{inn}</b>" if inn else ""
     return (
         "🆕 <b>Новая заявка на авторизацию</b>\n\n"
         f"• Username: {user_line}\n"
         f"• Имя: {full_name}\n"
-        f"• Компания / ИНН: <b>{company_name}</b>\n\n"
+        f"• Компания / ИНН: <b>{company_name}</b>{inn_line}\n\n"
         "Одобрить доступ?"
     )
 
@@ -144,17 +176,19 @@ def moderation_decided(
     *,
     approved: bool,
     company_name: str,
+    inn: str | None,
     username: str | None,
     full_name: str,
     moderator: str,
 ) -> str:
     user_line = f"@{username}" if username else "—"
+    inn_line = f"\n• ИНН: <b>{inn}</b>" if inn else ""
     status = "✅ <b>Одобрено</b>" if approved else "❌ <b>Отклонено</b>"
     return (
         f"{status}\n\n"
         f"• Username: {user_line}\n"
         f"• Имя: {full_name}\n"
-        f"• Компания / ИНН: <b>{company_name}</b>\n"
+        f"• Компания: <b>{company_name}</b>{inn_line}\n"
         f"• Кем: {moderator}"
     )
 
@@ -251,14 +285,14 @@ def help_admin() -> str:
         "📖 <b>Справка — админ-команды</b>\n\n"
         "Работают в этом чате (группа закупок):\n\n"
         "• /suppliers — список всех поставщиков\n"
-        "• /bind <code>&lt;telegram_id&gt; &lt;компания&gt;</code> — "
+        "• /bind <code>&lt;telegram_id&gt; &lt;компания&gt; [ИНН]</code> — "
         "создать или сменить привязку (сразу approved)\n"
         "• /unbind <code>&lt;telegram_id&gt;</code> — удалить привязку\n"
         "• /migrate_topics — создать темы для поставщиков без темы\n"
         "• /help — эта справка\n\n"
         "<b>Примеры:</b>\n"
         "<code>/bind 123456789 ООО Ромашка</code>\n"
-        "<code>/bind 123456789 7707083893</code>\n"
+        "<code>/bind 123456789 ООО Ромашка 7707083893</code>\n"
         "<code>/unbind 123456789</code>\n\n"
         "telegram_id можно взять из /suppliers или из профиля пользователя."
     )
@@ -276,6 +310,7 @@ def admin_supplier_line(
     *,
     index: int,
     company_name: str,
+    inn: str | None,
     status: str,
     telegram_id: int,
     username: str | None,
@@ -290,9 +325,10 @@ def admin_supplier_line(
     status_text = status_labels.get(status, status)
     user_line = f"@{username}" if username else "—"
     name = full_name or "—"
+    inn_line = f" · ИНН: {inn}" if inn else ""
     return (
         f"\n<b>{index}. {company_name}</b> — {status_text}\n"
-        f"   id: <code>{telegram_id}</code> · {user_line} · {name}\n"
+        f"   id: <code>{telegram_id}</code> · {user_line} · {name}{inn_line}\n"
         f"   расписание: {schedule_label}"
     )
 
@@ -300,8 +336,8 @@ def admin_supplier_line(
 def admin_bind_usage() -> str:
     return (
         "Использование:\n"
-        "<code>/bind &lt;telegram_id&gt; &lt;компания или ИНН&gt;</code>\n\n"
-        "Пример: <code>/bind 123456789 ООО Ромашка</code>"
+        "<code>/bind &lt;telegram_id&gt; &lt;компания&gt; [ИНН]</code>\n\n"
+        "Пример: <code>/bind 123456789 ООО Ромашка 7707083893</code>"
     )
 
 

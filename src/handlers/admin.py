@@ -77,6 +77,7 @@ async def cmd_suppliers(
             texts.admin_supplier_line(
                 index=i,
                 company_name=s.company_name,
+                inn=s.inn,
                 status=s.status,
                 telegram_id=s.telegram_id,
                 username=s.username,
@@ -108,7 +109,13 @@ async def cmd_bind(
         await message.answer(texts.admin_bind_usage())
         return
 
-    raw_id, company = parts[0].strip(), parts[1].strip()
+    raw_id = parts[0].strip()
+    company = parts[1].strip()
+    inn: str | None = None
+    if len(parts) >= 3:
+        inn_part = parts[2].strip()
+        if inn_part:
+            inn = inn_part
     try:
         telegram_id = int(raw_id)
     except ValueError:
@@ -132,6 +139,7 @@ async def cmd_bind(
     bound = suppliers.bind(
         telegram_id,
         company,
+        inn=inn,
         username=username,
         full_name=full_name,
     )
