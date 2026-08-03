@@ -18,6 +18,7 @@ from src.keyboards.common import (
     schedule_keyboard,
 )
 from src.services.suppliers import STATUS_REJECTED, SupplierRepo
+from src.services.topics import close_topic, create_supplier_topic, rename_topic
 from src.states.auth import AuthStates
 
 logger = logging.getLogger(__name__)
@@ -110,9 +111,26 @@ async def on_company_name(
     )
     await state.clear()
 
+    topic_id: int | None = None
+    try:
+        topic_id = await create_supplier_topic(
+            bot,
+            config.admin_chat_id,
+            supplier.company_name,
+            pending=True,
+        )
+        suppliers.set_topic_id(user.id, topic_id)
+    except Exception:
+        logger.exception(
+            "Failed to create forum topic for user=%s in chat=%s",
+            user.id,
+            config.admin_chat_id,
+        )
+
     try:
         await bot.send_message(
             chat_id=config.admin_chat_id,
+            message_thread_id=topic_id,
             text=texts.moderation_request(
                 company_name=supplier.company_name,
                 username=user.username,
@@ -193,6 +211,21 @@ async def on_approve(
         )
     )
 
+    if approved.topic_id is not None:
+        try:
+            await rename_topic(
+                callback.bot,
+                callback.message.chat.id,
+                approved.topic_id,
+                approved.company_name,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to rename topic %s for user %s",
+                approved.topic_id,
+                telegram_id,
+            )
+
     try:
         await bot.send_message(
             chat_id=telegram_id,
@@ -257,6 +290,20 @@ async def on_reject(
             moderator=_moderator_label(callback.from_user),
         )
     )
+
+    if rejected.topic_id is not None:
+        try:
+            await close_topic(
+                callback.bot,
+                callback.message.chat.id,
+                rejected.topic_id,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to close topic %s for user %s",
+                rejected.topic_id,
+                telegram_id,
+            )
 
     try:
         await bot.send_message(

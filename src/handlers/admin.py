@@ -12,6 +12,7 @@ from aiogram.types import Message
 from src import texts
 from src.config import Config
 from src.services.suppliers import format_schedule_days, SupplierRepo
+from src.services.topics import create_supplier_topic
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +144,17 @@ async def cmd_bind(
         )
     )
 
+    if bound.topic_id is None:
+        try:
+            topic_id = await create_supplier_topic(
+                bot, config.admin_chat_id, bound.company_name
+            )
+            suppliers.set_topic_id(telegram_id, topic_id)
+        except Exception:
+            logger.exception(
+                "Failed to create forum topic for bound user=%s", telegram_id
+            )
+
     try:
         await bot.send_message(
             chat_id=telegram_id,
@@ -197,3 +209,56 @@ async def cmd_unbind(
             "Could not notify user %s about unbind (blocked bot or never started)",
             telegram_id,
         )
+
+
+@router.message(Command("migrate_topics"))
+async def cmd_migrate_topics(
+    message: Message,
+    bot: Bot,
+    config: Config,
+    suppliers: SupplierRepo,
+) -> None:
+    if not _is_admin_chat(message, config):
+        return
+
+    rows = suppliers.list_all()
+    created = 0
+    errors = 0
+    for s in rows:
+        if s.topic_id is not None:
+            continue
+        try:
+            topic_id = await create_supplier_topic(
+                bot,
+                config.admin_chat_id,
+                s.company_name,
+                pending=s.is_pending,
+            )
+            suppliers.set_topic_id(s.telegram_id, topic_id)
+            created += 1
+        except Exception:
+            logger.exception(
+                "Failed to migrate topic for telegram_id=%s company=%s",
+                s.telegram_id,
+                s.company_name,
+            )
+            errors += 1
+
+    await message.answer(texts.admin_migrate_topics(created=created, errors=errors))
+
+
+@router.message(Command("chatid"))
+async def cmd_chatid(
+    message: Message,
+    config: Config,
+) -> None:
+    if not _is_admin_chat(message, config):
+        await message.answer(
+            f"Chat ID: <code>{message.chat.id}</code>"
+        )
+        return
+    await message.answer(
+        f"Chat ID: <code>{message.chat.id}</code>\n"
+        f"Тема: <code>{message.message_thread_id}</code>" if message.message_thread_id
+        else f"Chat ID: <code>{message.chat.id}</code>"
+    )

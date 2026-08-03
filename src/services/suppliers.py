@@ -62,6 +62,7 @@ class Supplier:
     telegram_id: int
     company_name: str
     status: str
+    topic_id: int | None
     username: str | None
     full_name: str | None
     schedule_days: str | None
@@ -124,6 +125,7 @@ class SupplierRepo:
                     telegram_id INTEGER PRIMARY KEY,
                     company_name TEXT NOT NULL,
                     status TEXT NOT NULL DEFAULT 'approved',
+                    topic_id INTEGER,
                     username TEXT,
                     full_name TEXT,
                     schedule_days TEXT,
@@ -140,6 +142,7 @@ class SupplierRepo:
             }
             migrations = {
                 "status": "ALTER TABLE suppliers ADD COLUMN status TEXT NOT NULL DEFAULT 'approved'",
+                "topic_id": "ALTER TABLE suppliers ADD COLUMN topic_id INTEGER",
                 "username": "ALTER TABLE suppliers ADD COLUMN username TEXT",
                 "full_name": "ALTER TABLE suppliers ADD COLUMN full_name TEXT",
                 "schedule_days": "ALTER TABLE suppliers ADD COLUMN schedule_days TEXT",
@@ -160,6 +163,7 @@ class SupplierRepo:
             telegram_id=row["telegram_id"],
             company_name=row["company_name"],
             status=row["status"] or STATUS_APPROVED,
+            topic_id=col("topic_id"),
             username=col("username"),
             full_name=col("full_name"),
             schedule_days=col("schedule_days"),
@@ -171,7 +175,7 @@ class SupplierRepo:
 
     def _select_sql(self) -> str:
         return (
-            "SELECT telegram_id, company_name, status, username, full_name, "
+            "SELECT telegram_id, company_name, status, topic_id, username, full_name, "
             "schedule_days, last_price_at, last_reminder_at, created_at, updated_at "
             "FROM suppliers"
         )
@@ -349,4 +353,12 @@ class SupplierRepo:
             conn.execute(
                 "UPDATE suppliers SET last_reminder_at = ? WHERE telegram_id = ?",
                 (stamp, telegram_id),
+            )
+
+    def set_topic_id(self, telegram_id: int, topic_id: int) -> None:
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE suppliers SET topic_id = ?, updated_at = ? WHERE telegram_id = ?",
+                (topic_id, now, telegram_id),
             )

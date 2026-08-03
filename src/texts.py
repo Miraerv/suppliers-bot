@@ -254,6 +254,7 @@ def help_admin() -> str:
         "• /bind <code>&lt;telegram_id&gt; &lt;компания&gt;</code> — "
         "создать или сменить привязку (сразу approved)\n"
         "• /unbind <code>&lt;telegram_id&gt;</code> — удалить привязку\n"
+        "• /migrate_topics — создать темы для поставщиков без темы\n"
         "• /help — эта справка\n\n"
         "<b>Примеры:</b>\n"
         "<code>/bind 123456789 ООО Ромашка</code>\n"
@@ -356,3 +357,10 @@ def admin_unbind_notify() -> str:
         "ℹ️ Ваша привязка к компании снята менеджером.\n"
         "Чтобы снова отправлять прайсы, пройдите авторизацию через /start."
     )
+
+
+def admin_migrate_topics(*, created: int, errors: int) -> str:
+    parts = [f"📋 <b>Миграция тем завершена</b>\n\nСоздано тем: <b>{created}</b>"]
+    if errors:
+        parts.append(f"\nОшибок: <b>{errors}</b> — проверьте логи.")
+    return "".join(parts)

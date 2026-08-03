@@ -91,6 +91,7 @@ async def on_document(
         admin_chat_id=config.admin_chat_id,
         prices_dir=Path(config.data_dir) / "prices",
         when=when,
+        topic_id=supplier.topic_id,
     )
     suppliers.mark_price_sent(message.from_user.id)
 

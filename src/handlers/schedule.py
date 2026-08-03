@@ -173,6 +173,7 @@ async def on_save_schedule(
     try:
         await bot.send_message(
             chat_id=config.admin_chat_id,
+            message_thread_id=supplier.topic_id,
             text=texts.admin_schedule_set(
                 company_name=supplier.company_name,
                 username=user.username or supplier.username,

@@ -26,6 +26,7 @@ async def accept_and_route(
     admin_chat_id: int,
     prices_dir: Path,
     when: str,
+    topic_id: int | None = None,
 ) -> str:
     """Скачать → переименовать → сохранить локально → отправить в чат закупок.
 
@@ -49,6 +50,7 @@ async def accept_and_route(
     )
     await bot.send_document(
         chat_id=admin_chat_id,
+        message_thread_id=topic_id,
         document=FSInputFile(local_path, filename=stored_name),
         caption=caption,
     )
